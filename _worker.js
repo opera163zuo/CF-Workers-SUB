@@ -17,9 +17,6 @@ https://cfxr.eu.org/getSub
 `;
 
 let urls = [];
-let subConverter = "SUBAPI.cmliussss.net"; //在线订阅转换后端，目前使用CM的订阅转换功能。支持自建psub 可自行搭建https://github.com/bulianglin/psub
-let subConfig = "https://raw.githubusercontent.com/cmliu/ACL4SSR/main/Clash/config/ACL4SSR_Online_MultiCountry.ini"; //订阅配置文件
-let subProtocol = 'https';
 
 export default {
 	async fetch(request, env) {
@@ -31,14 +28,6 @@ export default {
 		BotToken = env.TGTOKEN || BotToken;
 		ChatID = env.TGID || ChatID;
 		TG = env.TG || TG;
-		subConverter = env.SUBAPI || subConverter;
-		if (subConverter.includes("http://")) {
-			subConverter = subConverter.split("//")[1];
-			subProtocol = 'http';
-		} else {
-			subConverter = subConverter.split("//")[1] || subConverter;
-		}
-		subConfig = env.SUBCONFIG || subConfig;
 		FileName = env.SUBNAME || FileName;
 
 		const currentDate = new Date();
@@ -102,19 +91,16 @@ export default {
 					订阅格式 = 'quanx';
 				} else if (userAgent.includes('loon') || url.searchParams.has('loon')) {
 					订阅格式 = 'loon';
-				} else if (userAgent.includes('clash') || userAgent.includes('meta') || userAgent.includes('mihomo') || url.searchParams.has('clash')) {
+				} else if (userAgent.includes('clash') || userAgent.includes('meta') || userAgent.includes('mihomo') || url.searchParams.has('clash') || url.searchParams.has('mihomo') || url.searchParams.has('meta')) {
 					订阅格式 = 'clash';
 				}
 			}
 
-			let subConverterUrl;
-			let 订阅转换URL = `${url.origin}/${await MD5MD5(fakeToken)}?token=${fakeToken}`;
-			//console.log(订阅转换URL);
 			let req_data = MainData;
 
 			let 追加UA = 'v2rayn';
 			if (url.searchParams.has('b64') || url.searchParams.has('base64')) 订阅格式 = 'base64';
-			else if (url.searchParams.has('clash')) 追加UA = 'clash';
+			else if (url.searchParams.has('clash') || url.searchParams.has('mihomo') || url.searchParams.has('meta')) 追加UA = 'clash';
 			else if (url.searchParams.has('singbox')) 追加UA = 'singbox';
 			else if (url.searchParams.has('surge')) 追加UA = 'surge';
 			else if (url.searchParams.has('quanx')) 追加UA = 'Quantumult%20X';
@@ -125,22 +111,9 @@ export default {
 				const 请求订阅响应内容 = await getSUB(订阅链接数组, request, 追加UA, userAgentHeader);
 				console.log(请求订阅响应内容);
 				req_data += 请求订阅响应内容[0].join('\n');
-				订阅转换URL += "|" + 请求订阅响应内容[1];
-				if (订阅格式 == 'base64' && !isSubConverterRequest && 请求订阅响应内容[1].includes('://')) {
-					subConverterUrl = `${subProtocol}://${subConverter}/sub?target=mixed&url=${encodeURIComponent(请求订阅响应内容[1])}&insert=false&config=${encodeURIComponent(subConfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&new_name=true`;
-					try {
-						const subConverterResponse = await fetch(subConverterUrl, { headers: { 'User-Agent': 'v2rayN/CF-Workers-SUB  (https://github.com/cmliu/CF-Workers-SUB)' } });
-						if (subConverterResponse.ok) {
-							const subConverterContent = await subConverterResponse.text();
-							req_data += '\n' + atob(subConverterContent);
-						}
-					} catch (error) {
-						console.log('订阅转换请回base64失败，检查订阅转换后端是否正常运行');
-					}
-				}
 			}
 
-			if (env.WARP) 订阅转换URL += "|" + (await ADD(env.WARP)).join("|");
+			if (env.WARP) req_data += '\n' + (await ADD(env.WARP)).join("\n");
 			//修复中文错误
 			const utf8Encoder = new TextEncoder();
 			const encodedData = utf8Encoder.encode(req_data);
@@ -191,31 +164,205 @@ export default {
 			if (订阅格式 == 'base64' || token == fakeToken) {
 				return new Response(base64Data, { headers: responseHeaders });
 			} else if (订阅格式 == 'clash') {
-				subConverterUrl = `${subProtocol}://${subConverter}/sub?target=clash&url=${encodeURIComponent(订阅转换URL)}&insert=false&config=${encodeURIComponent(subConfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&new_name=true`;
-			} else if (订阅格式 == 'singbox') {
-				subConverterUrl = `${subProtocol}://${subConverter}/sub?target=singbox&url=${encodeURIComponent(订阅转换URL)}&insert=false&config=${encodeURIComponent(subConfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&new_name=true`;
-			} else if (订阅格式 == 'surge') {
-				subConverterUrl = `${subProtocol}://${subConverter}/sub?target=surge&ver=4&url=${encodeURIComponent(订阅转换URL)}&insert=false&config=${encodeURIComponent(subConfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&new_name=true`;
-			} else if (订阅格式 == 'quanx') {
-				subConverterUrl = `${subProtocol}://${subConverter}/sub?target=quanx&url=${encodeURIComponent(订阅转换URL)}&insert=false&config=${encodeURIComponent(subConfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&udp=true`;
-			} else if (订阅格式 == 'loon') {
-				subConverterUrl = `${subProtocol}://${subConverter}/sub?target=loon&url=${encodeURIComponent(订阅转换URL)}&insert=false&config=${encodeURIComponent(subConfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false`;
+				const clashContent = clashFix(generateClashConfig(result));
+				if (!userAgent.includes('mozilla')) responseHeaders["Content-Disposition"] = `attachment; filename*=utf-8''${encodeURIComponent(FileName)}.yaml`;
+				return new Response(clashContent, { headers: responseHeaders });
 			}
-			//console.log(订阅转换URL);
-			try {
-				const subConverterResponse = await fetch(subConverterUrl, { headers: { 'User-Agent': userAgentHeader } });//订阅转换
-				if (!subConverterResponse.ok) return new Response(base64Data, { headers: responseHeaders });
-				let subConverterContent = await subConverterResponse.text();
-				if (订阅格式 == 'clash') subConverterContent = await clashFix(subConverterContent);
-				// 只有非浏览器订阅才会返回SUBNAME
-				if (!userAgent.includes('mozilla')) responseHeaders["Content-Disposition"] = `attachment; filename*=utf-8''${encodeURIComponent(FileName)}`;
-				return new Response(subConverterContent, { headers: responseHeaders });
-			} catch (error) {
-				return new Response(base64Data, { headers: responseHeaders });
-			}
+
+			// sing-box/surge/quanx/loon 暂未内置生成器；为避免节点链接泄露给第三方，回退返回原始 base64 订阅。
+			return new Response(base64Data, { headers: responseHeaders });
 		}
 	}
 };
+
+
+function safeDecodeURIComponent(value) {
+	try { return decodeURIComponent(value || ''); } catch (e) { return value || ''; }
+}
+
+function decodeBase64Text(value) {
+	try {
+		let text = (value || '').replace(/-/g, '+').replace(/_/g, '/');
+		text += '='.repeat((4 - text.length % 4) % 4);
+		return base64Decode(text);
+	} catch (e) {
+		return '';
+	}
+}
+
+function yamlString(value) {
+	value = value == null ? '' : String(value);
+	return JSON.stringify(value);
+}
+
+function yamlBoolFromInsecure(value) {
+	value = String(value || '').toLowerCase();
+	return value === '1' || value === 'true' || value === 'yes';
+}
+
+function getQuery(url, key) {
+	return url.searchParams.get(key) || '';
+}
+
+function parseHostPort(url) {
+	return { server: url.hostname || '', port: Number(url.port || 0) };
+}
+
+function uniqueProxyName(name, usedNames) {
+	name = safeDecodeURIComponent(name || '').trim() || 'proxy';
+	let base = name;
+	let i = 2;
+	while (usedNames.has(name)) name = `${base} ${i++}`;
+	usedNames.add(name);
+	return name;
+}
+
+function parseVmess(link) {
+	const raw = decodeBase64Text(link.slice(8));
+	if (!raw) return null;
+	let v;
+	try { v = JSON.parse(raw); } catch (e) { return null; }
+	const proxy = {
+		name: v.ps || v.remarks || v.add || 'vmess',
+		type: 'vmess',
+		server: v.add || '',
+		port: Number(v.port || 0),
+		uuid: v.id || '',
+		alterId: Number(v.aid || 0),
+		cipher: v.scy || 'auto'
+	};
+	if (String(v.tls || '').toLowerCase() === 'tls') {
+		proxy.tls = true;
+		proxy['skip-cert-verify'] = yamlBoolFromInsecure(v.allowInsecure || v.insecure);
+		if (v.sni) proxy.servername = v.sni;
+		if (v.alpn) proxy.alpn = String(v.alpn).split(',').filter(Boolean);
+	}
+	if (v.net) proxy.network = v.net;
+	if (v.net === 'ws') {
+		proxy['ws-opts'] = { path: v.path || '/', headers: {} };
+		if (v.host) proxy['ws-opts'].headers.Host = v.host;
+	}
+	return proxy;
+}
+
+function parseStandardUri(link) {
+	let u;
+	try { u = new URL(link); } catch (e) { return null; }
+	const scheme = u.protocol.replace(':', '').toLowerCase();
+	const { server, port } = parseHostPort(u);
+	const name = safeDecodeURIComponent(u.hash ? u.hash.slice(1) : scheme);
+	const q = u.searchParams;
+	const user = safeDecodeURIComponent(u.username || '');
+	const pass = safeDecodeURIComponent(u.password || '');
+	if (!server || !port) return null;
+
+	if (scheme === 'vless') {
+		const proxy = { name, type: 'vless', server, port, uuid: user };
+		const security = (q.get('security') || '').toLowerCase();
+		if (q.get('flow')) proxy.flow = q.get('flow');
+		if (security === 'tls' || security === 'reality') {
+			proxy.tls = true;
+			proxy['skip-cert-verify'] = yamlBoolFromInsecure(q.get('allowInsecure') || q.get('insecure'));
+			if (q.get('sni')) proxy.servername = q.get('sni');
+			if (q.get('fp')) proxy['client-fingerprint'] = q.get('fp');
+			if (security === 'reality') {
+				proxy['reality-opts'] = {};
+				if (q.get('pbk')) proxy['reality-opts']['public-key'] = q.get('pbk');
+				if (q.get('sid')) proxy['reality-opts']['short-id'] = q.get('sid');
+			}
+		}
+		if (q.get('type')) proxy.network = q.get('type');
+		if (proxy.network === 'ws') {
+			proxy['ws-opts'] = { path: q.get('path') || '/', headers: {} };
+			if (q.get('host')) proxy['ws-opts'].headers.Host = q.get('host');
+		}
+		return proxy;
+	}
+
+	if (scheme === 'hysteria2' || scheme === 'hy2') {
+		const proxy = { name, type: 'hysteria2', server, port, password: user || pass };
+		if (q.get('sni')) proxy.sni = q.get('sni');
+		proxy['skip-cert-verify'] = yamlBoolFromInsecure(q.get('allowInsecure') || q.get('insecure'));
+		if (q.get('alpn')) proxy.alpn = q.get('alpn').split(',').filter(Boolean);
+		if (q.get('obfs')) proxy.obfs = q.get('obfs');
+		if (q.get('obfs-password')) proxy['obfs-password'] = q.get('obfs-password');
+		return proxy;
+	}
+
+	if (scheme === 'tuic') {
+		let uuid = user, password = pass;
+		if (!password && uuid.includes(':')) {
+			const parts = uuid.split(':');
+			uuid = parts.shift();
+			password = parts.join(':');
+		}
+		const proxy = { name, type: 'tuic', server, port, uuid, password };
+		if (q.get('sni')) proxy.sni = q.get('sni');
+		proxy['skip-cert-verify'] = yamlBoolFromInsecure(q.get('allowInsecure') || q.get('insecure'));
+		if (q.get('alpn')) proxy.alpn = q.get('alpn').split(',').filter(Boolean);
+		if (q.get('congestion_control')) proxy['congestion-controller'] = q.get('congestion_control');
+		if (q.get('congestion-controller')) proxy['congestion-controller'] = q.get('congestion-controller');
+		proxy['udp-relay-mode'] = q.get('udp_relay_mode') || q.get('udp-relay-mode') || 'native';
+		return proxy;
+	}
+
+	if (scheme === 'anytls') {
+		const proxy = { name, type: 'anytls', server, port, password: user || pass };
+		if ((q.get('security') || '').toLowerCase() === 'tls') proxy.tls = true;
+		if (q.get('sni')) proxy.sni = q.get('sni');
+		proxy['skip-cert-verify'] = yamlBoolFromInsecure(q.get('allowInsecure') || q.get('insecure'));
+		return proxy;
+	}
+
+	return null;
+}
+
+function parseProxyLink(link) {
+	link = (link || '').trim();
+	if (!link || link.startsWith('//')) return null;
+	if (link.startsWith('vmess://')) return parseVmess(link);
+	if (/^(vless|hysteria2|hy2|tuic|anytls):\/\//i.test(link)) return parseStandardUri(link);
+	return null;
+}
+
+function proxyToYaml(proxy) {
+	function val(v, indent) {
+		if (Array.isArray(v)) return '[' + v.map(yamlString).join(', ') + ']';
+		if (v && typeof v === 'object') {
+			const pad = ' '.repeat(indent + 2);
+			return '\n' + Object.entries(v).map(([k, x]) => `${pad}${k}: ${val(x, indent + 2)}`).join('\n');
+		}
+		if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+		return yamlString(v);
+	}
+	let out = `  - name: ${yamlString(proxy.name)}\n`;
+	for (const [k, v] of Object.entries(proxy)) {
+		if (k === 'name' || v === '' || v == null || (typeof v === 'number' && !v)) continue;
+		out += `    ${k}: ${val(v, 4)}\n`;
+	}
+	return out;
+}
+
+function generateClashConfig(content) {
+	const usedNames = new Set();
+	const proxies = [];
+	for (const line of String(content || '').split('\n')) {
+		const proxy = parseProxyLink(line);
+		if (!proxy) continue;
+		proxy.name = uniqueProxyName(proxy.name, usedNames);
+		proxies.push(proxy);
+	}
+	const names = proxies.map(x => x.name);
+	let yaml = `port: 7890\nsocks-port: 7891\nallow-lan: true\nmode: Rule\nlog-level: info\nexternal-controller: 127.0.0.1:9090\n\nproxies:\n`;
+	yaml += proxies.length ? proxies.map(proxyToYaml).join('') : '  []\n';
+	yaml += `\nproxy-groups:\n  - name: 🚀 节点选择\n    type: select\n    proxies:\n      - ♻️ 自动选择\n      - DIRECT\n`;
+	for (const name of names) yaml += `      - ${yamlString(name)}\n`;
+	yaml += `  - name: ♻️ 自动选择\n    type: url-test\n    url: http://www.gstatic.com/generate_204\n    interval: 300\n    tolerance: 50\n    proxies:\n`;
+	if (names.length) for (const name of names) yaml += `      - ${yamlString(name)}\n`;
+	else yaml += `      - DIRECT\n`;
+	yaml += `\nrules:\n  - MATCH,🚀 节点选择\n`;
+	return yaml;
+}
 
 async function ADD(envadd) {
 	var addtext = envadd.replace(/[	"'|\r\n]+/g, '\n').replace(/\n+/g, '\n');	// 替换为换行
@@ -639,8 +786,7 @@ async function KV(request, env, txt = 'ADD.txt', guest) {
 					################################################################<br>
 					订阅转换配置<br>
 					---------------------------------------------------------------<br>
-					SUBAPI（订阅转换后端）: <strong>${subProtocol}://${subConverter}</strong><br>
-					SUBCONFIG（订阅转换配置文件）: <strong>${subConfig}</strong><br>
+					Clash/Mihomo: <strong>Worker 本地生成，不使用订阅转换后端</strong><br>
 					---------------------------------------------------------------<br>
 					################################################################<br>
 					${FileName} 汇聚订阅编辑: 
