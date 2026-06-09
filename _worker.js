@@ -337,7 +337,7 @@ function proxyToYaml(proxy) {
 	}
 	let out = `  - name: ${yamlString(proxy.name)}\n`;
 	for (const [k, v] of Object.entries(proxy)) {
-		if (k === 'name' || v === '' || v == null || (typeof v === 'number' && !v)) continue;
+		if (k === 'name' || v === '' || v == null) continue;
 		out += `    ${k}: ${val(v, 4)}\n`;
 	}
 	return out;
